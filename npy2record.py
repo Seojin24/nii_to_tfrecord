@@ -4,12 +4,6 @@
 # to actual rgb values. This is specific to PASCAL VOC
 # dataset data. If you don't want thit type of behaviour
 # consider using skimage.io.imread()
-# Important: We are using PIL to read .png files later.
-# This was done on purpose to read indexed png files
-# in a special way -- only indexes and not map the indexes
-# to actual rgb values. This is specific to PASCAL VOC
-# dataset data. If you don't want thit type of behaviour
-# consider using skimage.io.imread()
 from PIL import Image
 import numpy as np
 import skimage.io as io
@@ -17,7 +11,6 @@ import tensorflow as tf
 import nibabel as nib
 
 import os, sys
-
 
 def load_nii(img_path):
     """
@@ -64,7 +57,7 @@ def save_nii(img_path, data, affine, header):
     nimg = nib.Nifti1Image(data, affine=affine, header=header)
     nimg.to_filename(img_path)
 
-# Helper functions for defining tf types
+    # Helper functions for defining tf types
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
@@ -122,7 +115,7 @@ def write_image_annotation_pairs_to_tfrecord(filename_pairs, tfrecords_filename)
         #img_raw = img.tostring()
         img_raw=img[0].tostring()
         annotation_raw = annotation[0].tostring()
-        #print(annotation[0].shape)
+        print(annotation[0].shape)
         #print(annotation[1].shape)
         #print(annotation[2].shape)
         
@@ -173,6 +166,10 @@ def read_image_annotation_pairs_from_tfrecord(tfrecords_filename):
         width = int(example.features.feature['width']
                                     .int64_list
                                     .value[0])
+        
+        depth = int(example.features.feature['depth']
+                                    .int64_list
+                                    .value[0])
 
         img_string = (example.features.feature['image_raw']
                                       .bytes_list
@@ -183,18 +180,17 @@ def read_image_annotation_pairs_from_tfrecord(tfrecords_filename):
                                     .value[0])
 
         img_1d = np.fromstring(img_string, dtype=np.uint8)
-        img = img_1d.reshape((height, width, -1))
+        img = img_1d.reshape((height, width, depth, -1))
 
         annotation_1d = np.fromstring(annotation_string, dtype=np.uint8)
 
         # Annotations don't have depth (3rd dimension)
         # TODO: check if it works for other datasets
-        annotation = annotation_1d.reshape((height, width,-1))
+        annotation = annotation_1d.reshape((height, width, depth,-1))
 
         image_annotation_pairs.append((img, annotation))
     
     return image_annotation_pairs
-
 
 
 def read_tfrecord_and_decode_into_image_annotation_pair_tensors(tfrecord_filenames_queue):
@@ -238,19 +234,34 @@ def read_tfrecord_and_decode_into_image_annotation_pair_tensors(tfrecord_filenam
     width = tf.cast(features['width'], tf.int32) 
     depth = tf.cast(features['depth'],tf.int32)
     
-    image_shape = tf.pack([height, width, depth, 3])
+    #image_shape = tf.pack([height, width, depth, 3])
+    image_shape = tf.stack([height, width, depth, 3])
     
     # The last dimension was added because
     # the tf.resize_image_with_crop_or_pad() accepts tensors
     # that have depth. We need resize and crop later.
     # TODO: See if it is necessary and probably remove third
     # dimension
-    annotation_shape = tf.pack([height, width,depth, 1])
+    annotation_shape = tf.stack([height, width, depth, 1])
     
     image = tf.reshape(image, image_shape)
     annotation = tf.reshape(annotation, annotation_shape)
     
     return image, annotation
+
+
+img_path=os.path.abspath('mr_train_1001_image.nii')
+label_path=os.path.abspath('mr_train_1001_label.nii')
+
+array_img=load_nii(img_path) 
+array_label=load_nii(label_path) 
+
+img_npy_path=os.path.abspath('mr_train_1001_img_npy')
+label_npy_path=os.path.abspath('mr_train_1001_label_npy')
+    
+np.save(img_npy_path, array_img) 
+np.save(label_npy_path, array_label) 
+
 
 img_npy_path=os.path.abspath('mr_train_1001_img_npy.npy')
 label_npy_path=os.path.abspath('mr_train_1001_label_npy.npy')
@@ -262,7 +273,13 @@ f_arr=[[img_npy_path,label_npy_path]]
 tfrecords_filename='mr_train_1001_pairs.tfrecords'
 write_image_annotation_pairs_to_tfrecord(f_arr, tfrecords_filename)
 
+
 pairs=read_image_annotation_pairs_from_tfrecord(tfrecords_filename) 
+#print(pairs)
+
 #print(pairs)  
-tfrecord_filenames_queue=tf.train.string_input_producer(["mr_train_1001_pairs"])
-read_tfrecord_and_decode_into_image_annotation_pair_tensors(tfrecord_filenames_queue)  
+tfrecord_filenames_queue=tf.train.string_input_producer(["mr_train_1001_pairs.tfrecords"])
+img,annotation=read_tfrecord_and_decode_into_image_annotation_pair_tensors(tfrecord_filenames_queue)  
+print(img)
+print(annotation)
+#print(output)
