@@ -4,12 +4,65 @@
 # to actual rgb values. This is specific to PASCAL VOC
 # dataset data. If you don't want thit type of behaviour
 # consider using skimage.io.imread()
+# Important: We are using PIL to read .png files later.
+# This was done on purpose to read indexed png files
+# in a special way -- only indexes and not map the indexes
+# to actual rgb values. This is specific to PASCAL VOC
+# dataset data. If you don't want thit type of behaviour
+# consider using skimage.io.imread()
 from PIL import Image
 import numpy as np
 import skimage.io as io
 import tensorflow as tf
+import nibabel as nib
 
 import os, sys
+
+
+def load_nii(img_path):
+    """
+    Function to load a 'nii' or 'nii.gz' file, The function returns
+    everyting needed to save another 'nii' or 'nii.gz'
+    in the same dimensional space, i.e. the affine matrix and the header
+
+    Parameters
+    ----------
+
+    img_path: string
+    String with the path of the 'nii' or 'nii.gz' image file name.
+
+    Returns
+    -------
+    Three element, the first is a numpy array of the image values,
+    the second is the affine transformation of the image, and the
+    last one is the header of the image.
+    """
+    nimg = nib.load(img_path)
+    return nimg.get_data(), nimg.affine, nimg.header
+
+
+def save_nii(img_path, data, affine, header):
+    """
+    Function to save a 'nii' or 'nii.gz' file.
+
+    Parameters
+    ----------
+
+    img_path: string
+    Path to save the image should be ending with '.nii' or '.nii.gz'.
+
+    data: np.array
+    Numpy array of the image data.
+
+    affine: list of list or np.array
+    The affine transformation to save with the image.
+
+    header: nib.Nifti1Header
+    The header that define everything about the data
+    (pleasecheck nibabel documentation).
+    """
+    nimg = nib.Nifti1Image(data, affine=affine, header=header)
+    nimg.to_filename(img_path)
 
 # Helper functions for defining tf types
 def _bytes_feature(value):
@@ -211,5 +264,5 @@ write_image_annotation_pairs_to_tfrecord(f_arr, tfrecords_filename)
 
 pairs=read_image_annotation_pairs_from_tfrecord(tfrecords_filename) 
 #print(pairs)  
-tfrecord_filenames_queue=tf.train.string_input_producer(["mr_train_1001_pairs.tfrecords"])
+tfrecord_filenames_queue=tf.train.string_input_producer(["mr_train_1001_pairs"])
 read_tfrecord_and_decode_into_image_annotation_pair_tensors(tfrecord_filenames_queue)  
