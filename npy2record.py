@@ -206,10 +206,10 @@ label_npy_path=os.path.abspath('mr_train_1001_label_npy.npy')
 f_arr=[[img_npy_path,label_npy_path]]
 
 
-tfrecords_filename='mr_train_1001_pairs'
+tfrecords_filename='mr_train_1001_pairs.tfrecords'
 write_image_annotation_pairs_to_tfrecord(f_arr, tfrecords_filename)
 
 pairs=read_image_annotation_pairs_from_tfrecord(tfrecords_filename) 
 #print(pairs)  
-tfrecord_filenames_queue=tf.train.string_input_producer(["mr_train_1001_pairs"])
+tfrecord_filenames_queue=tf.train.string_input_producer(["mr_train_1001_pairs.tfrecords"])
 read_tfrecord_and_decode_into_image_annotation_pair_tensors(tfrecord_filenames_queue)  
